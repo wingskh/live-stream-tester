@@ -13,15 +13,31 @@ function App() {
     window.addEventListener("resize", () => {
       // Debounce resize events
       if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(updateDeviceInfo, 250);
+      resizeTimer = setTimeout(() => {
+        updateDeviceInfo();
+        // Update responsive UI elements if needed
+        document.documentElement.dataset.width = window.innerWidth.toString();
+      }, 250);
     });
+
+    // Set initial responsive data attribute
+    document.documentElement.dataset.width = window.innerWidth.toString();
+
+    // Listen for color scheme changes
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleColorSchemeChange = () => {
+      document.documentElement.classList.toggle("dark", mediaQuery.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleColorSchemeChange);
+    handleColorSchemeChange(); // Set initial value
   });
 
   return (
     <div class="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 py-6 shadow-sm">
+      <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 py-4 sm:py-6 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex justify-between items-center">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div>
               <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                 Live Stream Format Tester
@@ -57,11 +73,11 @@ function App() {
         </div>
       </header>
 
-      <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main class="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
         <StreamTester />
       </main>
 
-      <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 mt-12">
+      <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4 sm:py-6 mt-8 sm:mt-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex flex-col md:flex-row justify-between items-center">
             <p class="text-gray-500 dark:text-gray-400 text-sm">
