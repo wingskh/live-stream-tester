@@ -1,7 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-  presets: [require("tailwindcss/defaultConfig")],
   safelist: [
     // Colors that might be used dynamically
     "bg-emerald-500",
@@ -25,6 +24,33 @@ export default {
     "text-blue-600",
     "dark:text-blue-400",
     "text-blue-700",
+    // Add more gray colors that are used in the app
+    "bg-gray-50",
+    "bg-gray-100",
+    "bg-gray-200",
+    "bg-gray-700",
+    "bg-gray-800",
+    "bg-gray-900",
+    "text-gray-100",
+    "text-gray-300",
+    "text-gray-400",
+    "text-gray-500",
+    "text-gray-600",
+    "text-gray-700",
+    "text-gray-800",
+    "text-gray-900",
+    "border-gray-200",
+    "border-gray-300",
+    "border-gray-600",
+    "border-gray-700",
+    "dark:bg-gray-700",
+    "dark:bg-gray-800",
+    "dark:bg-gray-900",
+    "dark:text-gray-100",
+    "dark:text-gray-300",
+    "dark:text-gray-400",
+    "dark:border-gray-600",
+    "dark:border-gray-700",
   ],
   darkMode: "media",
   theme: {
@@ -33,6 +59,19 @@ export default {
         sans: ["Inter", "system-ui", "sans-serif"],
       },
       colors: {
+        gray: {
+          50: "#f9fafb",
+          100: "#f3f4f6",
+          200: "#e5e7eb",
+          300: "#d1d5db",
+          400: "#9ca3af",
+          500: "#6b7280",
+          600: "#4b5563",
+          700: "#374151",
+          800: "#1f2937",
+          900: "#111827",
+          950: "#030712",
+        },
         blue: {
           50: "#eef4ff",
           100: "#d9e7ff",

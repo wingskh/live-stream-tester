@@ -9,7 +9,7 @@ function App() {
     updateDeviceInfo();
 
     // Update device info when window is resized
-    let resizeTimer: number | undefined;
+    let resizeTimer: NodeJS.Timeout | undefined;
     window.addEventListener("resize", () => {
       // Debounce resize events
       if (resizeTimer) clearTimeout(resizeTimer);

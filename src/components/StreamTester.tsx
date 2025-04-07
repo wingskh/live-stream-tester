@@ -132,14 +132,6 @@ const StreamTester = () => {
     },
   ];
 
-  const handleFormatChange = (e: Event) => {
-    const target = e.target as HTMLSelectElement;
-    const format = target.value as VideoFormat;
-    setSelectedFormat(format);
-    // Set a default URL for the selected format
-    setInputUrl(SAMPLE_STREAMS[format] || "");
-  };
-
   const handleUrlChange = (e: Event) => {
     const target = e.target as HTMLInputElement;
     setInputUrl(target.value);
