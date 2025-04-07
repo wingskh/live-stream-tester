@@ -1,6 +1,7 @@
 # Live Stream Tester
 
 A web application built with SolidJS to test device compatibility with different live streaming formats.
+Demo: https://live-stream-tester.vercel.app/
 
 ## Features
 
@@ -23,7 +24,7 @@ A web application built with SolidJS to test device compatibility with different
 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/live-stream-tester.git
+git clone https://github.com/wingskh/live-stream-tester.git
 cd live-stream-tester
 ```
 
@@ -39,7 +40,7 @@ pnpm install
 pnpm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+4. Open your browser and navigate to `http://localhost:3000`
 
 ## Building for Production
 

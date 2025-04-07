@@ -1,7 +1,16 @@
-import { createSignal, Show, For } from "solid-js";
+import { createSignal, Show, For, batch } from "solid-js";
 import VideoPlayer from "./VideoPlayer";
 
-type VideoFormat = "hls" | "dash" | "webrtc" | "mp4";
+type VideoFormat =
+  | "hls"
+  | "dash"
+  | "webrtc"
+  | "mp4"
+  | "rtmp"
+  | "rtsp"
+  | "srt"
+  | "flv"
+  | "smooth";
 
 interface StreamResult {
   format: VideoFormat;
@@ -12,9 +21,55 @@ interface StreamResult {
 
 const SAMPLE_STREAMS = {
   hls: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+  hlsBackup: [
+    "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+    "https://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8",
+    "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
+  ],
   dash: "https://dash.akamaized.net/akamai/test/caption_test/ElephantsDream/elephants_dream_480p_heaac5_1.mpd",
-  webrtc: "",
+  dashBackup: [
+    "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.mpd",
+    "https://livesim.dashif.org/livesim/chunkdur_1/ato_7/testpic4_8s/Manifest.mpd",
+    "https://dash.akamaized.net/dash264/TestCases/1a/sony/SNE_DASH_SD_CASE1A_REVISED.mpd",
+  ],
+  webrtc: "wss://demo.cloudwebrtc.com:8443/ws",
+  webrtcBackup: [
+    "wss://webrtc.live-video.net/janus",
+    "wss://webrtc-signaling.millicast.com/ws",
+    "wss://webrtc.echotest.io/ws",
+  ],
   mp4: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4",
+  mp4Backup: [
+    "https://media.w3.org/2010/05/sintel/trailer.mp4",
+    "https://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel.mp4",
+  ],
+  rtmp: "rtmp://live.twitch.tv/app/",
+  rtmpBackup: [
+    "rtmp://fms.105.net/live/rmc1",
+    "rtmp://streaming.cityofboston.gov/live/cable",
+  ],
+  rtsp: "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mp4",
+  rtspBackup: [
+    "rtsp://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel.mp4",
+    "rtsp://streaming.cityofboston.gov/live/cable",
+  ],
+  srt: "srt://18.138.248.25:30000",
+  srtBackup: [
+    "srt://srt-demo.streamroot.io:7001",
+    "srt://srt.streamroot.io:1234",
+  ],
+  flv: "https://samples.mux.dev/big_buck_bunny_720p_1mb.flv",
+  flvBackup: [
+    "https://dc.demuxed.com/video.flv",
+    "https://cdn.jsdelivr.net/gh/mayeaux/videojs-flashls-source-handler/video/test.flv",
+    "https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-960x540.flv",
+  ],
+  smooth:
+    "https://test.playready.microsoft.com/smoothstreaming/SSWSS720H264/SuperSpeedway_720.ism/manifest",
+  smoothBackup: [
+    "https://playready.directtaps.net/smoothstreaming/SSWSS720H264PR/SuperSpeedway_720.ism/Manifest",
+    "http://amssamples.streaming.mediaservices.windows.net/49b57c87-f5f3-48b3-ba22-c55cfdffa9cb/Sintel.ism/manifest",
+  ],
 };
 
 const formatIcons = {
@@ -87,6 +142,87 @@ const formatIcons = {
       />
     </svg>
   ),
+  rtmp: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      class="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M13 10V3L4 14h7v7l9-11h-7z"
+      />
+    </svg>
+  ),
+  rtsp: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      class="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+      />
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18" />
+    </svg>
+  ),
+  srt: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      class="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+      />
+    </svg>
+  ),
+  flv: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      class="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+      />
+    </svg>
+  ),
+  smooth: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      class="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+      />
+    </svg>
+  ),
 };
 
 const StreamTester = () => {
@@ -100,6 +236,7 @@ const StreamTester = () => {
   const [expandedSection, setExpandedSection] = createSignal<
     "form" | "results" | "device-info"
   >("form");
+  const [backupUrlIndex, setBackupUrlIndex] = createSignal<number>(-1); // -1 means primary URL
 
   const formatOptions: {
     value: VideoFormat;
@@ -130,11 +267,137 @@ const StreamTester = () => {
       description:
         "Direct MP4 playback - Basic format, widely compatible but not ideal for live streaming.",
     },
+    {
+      value: "rtmp",
+      label: "RTMP",
+      description:
+        "Real-Time Messaging Protocol - Flash-based protocol used in legacy systems, requires server support.",
+    },
+    {
+      value: "rtsp",
+      label: "RTSP",
+      description:
+        "Real-Time Streaming Protocol - Used for establishing and controlling media sessions, common in security cameras.",
+    },
+    {
+      value: "srt",
+      label: "SRT",
+      description:
+        "Secure Reliable Transport - Open-source protocol optimized for low-latency streaming over unreliable networks.",
+    },
+    {
+      value: "flv",
+      label: "FLV",
+      description:
+        "Flash Video - Legacy format previously used with Adobe Flash Player, still used in some regions.",
+    },
+    {
+      value: "smooth",
+      label: "Smooth Streaming",
+      description:
+        "Microsoft's adaptive streaming format, used in conjunction with IIS Media Services.",
+    },
   ];
+
+  // Function to get the current URL based on format and backup index
+  const getCurrentUrl = (
+    format: VideoFormat,
+    backupIndex: number = -1
+  ): string => {
+    if (backupIndex === -1) {
+      return SAMPLE_STREAMS[format] || "";
+    }
+
+    const backupKey = `${format}Backup` as keyof typeof SAMPLE_STREAMS;
+    const backups = SAMPLE_STREAMS[backupKey] as string[] | undefined;
+
+    if (!backups || backupIndex >= backups.length) {
+      return SAMPLE_STREAMS[format] || "";
+    }
+
+    return backups[backupIndex];
+  };
+
+  // Function to get the number of available backup URLs for a format
+  const getBackupCount = (format: VideoFormat): number => {
+    const backupKey = `${format}Backup` as keyof typeof SAMPLE_STREAMS;
+    const backups = SAMPLE_STREAMS[backupKey] as string[] | undefined;
+    return backups?.length || 0;
+  };
+
+  // Function to reset all player status variables with a forced cleanup
+  const resetPlayStatus = () => {
+    // Force video cleanup by setting isTestActive to false first
+    setIsTestActive(false);
+
+    // Use setTimeout to ensure the player has time to cleanup
+    setTimeout(() => {
+      setStatus("loading");
+
+      // Clear the current test result if any
+      if (results().length > 0) {
+        const updatedResults = [...results()];
+        if (updatedResults[0]?.status === "loading") {
+          updatedResults.shift();
+          setResults(updatedResults);
+        }
+      }
+    }, 50); // Small delay to ensure proper cleanup
+  };
+
+  // Function to reset the backup index when changing formats
+  const resetBackupIndex = () => {
+    setBackupUrlIndex(-1);
+  };
+
+  // Add a debounce mechanism for format changes
+  let formatChangeTimer: number | null = null;
+
+  const debouncedFormatChange = (format: VideoFormat) => {
+    // Clear any pending format change timer
+    if (formatChangeTimer) {
+      window.clearTimeout(formatChangeTimer);
+    }
+
+    // Stop any active test immediately
+    setIsTestActive(false);
+
+    // Set the new format and URL with a small delay
+    formatChangeTimer = window.setTimeout(() => {
+      batch(() => {
+        setSelectedFormat(format);
+        resetBackupIndex();
+        setInputUrl(SAMPLE_STREAMS[format] || "");
+      });
+    }, 100);
+  };
+
+  // Debounced URL change handler
+  let urlChangeTimer: number | null = null;
+
+  const debouncedUrlChange = (url: string, resetBackup: boolean = true) => {
+    // Clear any pending URL change timer
+    if (urlChangeTimer) {
+      window.clearTimeout(urlChangeTimer);
+    }
+
+    // Stop any active test immediately
+    setIsTestActive(false);
+
+    // Set the new URL with a small delay
+    urlChangeTimer = window.setTimeout(() => {
+      batch(() => {
+        setInputUrl(url);
+        if (resetBackup) {
+          resetBackupIndex();
+        }
+      });
+    }, 100);
+  };
 
   const handleUrlChange = (e: Event) => {
     const target = e.target as HTMLInputElement;
-    setInputUrl(target.value);
+    debouncedUrlChange(target.value);
   };
 
   const handleStartTest = () => {
@@ -143,18 +406,20 @@ const StreamTester = () => {
       return;
     }
 
-    setIsTestActive(true);
-    setStatus("loading");
+    batch(() => {
+      setIsTestActive(true);
+      setStatus("loading");
 
-    // Add this test to results
-    const newResult: StreamResult = {
-      format: selectedFormat(),
-      url: inputUrl(),
-      status: "loading",
-      timestamp: Date.now(),
-    };
+      // Add this test to results
+      const newResult: StreamResult = {
+        format: selectedFormat(),
+        url: inputUrl(),
+        status: "loading",
+        timestamp: Date.now(),
+      };
 
-    setResults((prev) => [newResult, ...prev].slice(0, 10)); // Keep last 10 results
+      setResults((prev) => [newResult, ...prev].slice(0, 10)); // Keep last 10 results
+    });
   };
 
   const handleStatusChange = (newStatus: "success" | "error" | "loading") => {
@@ -168,6 +433,19 @@ const StreamTester = () => {
       }
       return updated;
     });
+
+    // If error and not already using a backup, try a backup URL automatically
+    if (newStatus === "error" && !isTestActive()) {
+      const format = selectedFormat();
+      const backupCount = getBackupCount(format);
+
+      if (backupCount > 0 && backupUrlIndex() === -1) {
+        // Try the first backup URL
+        setBackupUrlIndex(0);
+        setInputUrl(getCurrentUrl(format, 0));
+        handleStartTest();
+      }
+    }
   };
 
   const handleStopTest = () => {
@@ -175,54 +453,65 @@ const StreamTester = () => {
   };
 
   const handleTestAll = async () => {
-    // Test each format one by one
-    for (const format of formatOptions.map((opt) => opt.value)) {
-      setSelectedFormat(format);
-      setInputUrl(SAMPLE_STREAMS[format] || "");
+    // Reset status before starting tests
+    resetPlayStatus();
 
-      if (!SAMPLE_STREAMS[format]) {
-        continue; // Skip if no sample URL available
+    batch(async () => {
+      // Test each format one by one
+      for (const format of formatOptions.map((opt) => opt.value)) {
+        const url = getCurrentUrl(format);
+        batch(() => {
+          setSelectedFormat(format);
+          resetBackupIndex();
+          setInputUrl(url);
+        });
+
+        if (!url) {
+          continue; // Skip if no URL available
+        }
+
+        batch(() => {
+          setIsTestActive(true);
+          setStatus("loading");
+
+          const newResult: StreamResult = {
+            format,
+            url,
+            status: "loading",
+            timestamp: Date.now(),
+          };
+
+          setResults((prev) => [newResult, ...prev].slice(0, 10));
+        });
+
+        // Wait for 10 seconds or until status changes from loading
+        await new Promise<void>((resolve) => {
+          let timeout: ReturnType<typeof setTimeout>;
+
+          const checkStatus = () => {
+            if (status() !== "loading") {
+              clearTimeout(timeout);
+              resolve();
+            }
+          };
+
+          // Check status every 500ms
+          const interval = setInterval(checkStatus, 500);
+
+          // Force resolve after 10 seconds
+          timeout = setTimeout(() => {
+            clearInterval(interval);
+            handleStatusChange("error"); // Assume error if timeout
+            resolve();
+          }, 10000);
+        });
+
+        // Small delay between tests
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
-      setIsTestActive(true);
-      setStatus("loading");
-
-      const newResult: StreamResult = {
-        format,
-        url: SAMPLE_STREAMS[format],
-        status: "loading",
-        timestamp: Date.now(),
-      };
-
-      setResults((prev) => [newResult, ...prev].slice(0, 10));
-
-      // Wait for 10 seconds or until status changes from loading
-      await new Promise<void>((resolve) => {
-        let timeout: ReturnType<typeof setTimeout>;
-
-        const checkStatus = () => {
-          if (status() !== "loading") {
-            clearTimeout(timeout);
-            resolve();
-          }
-        };
-
-        // Check status every 500ms
-        const interval = setInterval(checkStatus, 500);
-
-        // Force resolve after 10 seconds
-        timeout = setTimeout(() => {
-          clearInterval(interval);
-          handleStatusChange("error"); // Assume error if timeout
-          resolve();
-        }, 10000);
-      });
-
-      // Small delay between tests
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-
-    setIsTestActive(false);
+      setIsTestActive(false);
+    });
   };
 
   const getStatusBadge = (
@@ -356,8 +645,7 @@ const StreamTester = () => {
                       }`}
                       onClick={() => {
                         if (!isTestActive()) {
-                          setSelectedFormat(format.value);
-                          setInputUrl(SAMPLE_STREAMS[format.value] || "");
+                          debouncedFormatChange(format.value);
                         }
                       }}
                     >
@@ -390,7 +678,7 @@ const StreamTester = () => {
               </div>
             </div>
 
-            {/* URL input - make it more responsive */}
+            {/* URL input with backup selection */}
             <div>
               <label for="url-input" class="form-label">
                 Stream URL
@@ -405,23 +693,84 @@ const StreamTester = () => {
                   disabled={isTestActive()}
                   placeholder="Enter stream URL..."
                 />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setInputUrl(SAMPLE_STREAMS[selectedFormat()] || "")
-                  }
-                  class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors sm:w-auto w-full"
-                  disabled={isTestActive() || !SAMPLE_STREAMS[selectedFormat()]}
-                >
-                  Use Sample
-                </button>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetBackupIndex();
+                      debouncedUrlChange(
+                        SAMPLE_STREAMS[selectedFormat()] || "",
+                        false
+                      );
+                    }}
+                    class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors sm:w-auto w-full"
+                    disabled={!SAMPLE_STREAMS[selectedFormat()]}
+                  >
+                    Primary URL
+                  </button>
+
+                  <div class="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentFormat = selectedFormat();
+                        const backupCount = getBackupCount(currentFormat);
+
+                        if (backupCount > 0) {
+                          const nextIndex =
+                            (backupUrlIndex() + 1) % backupCount;
+                          setBackupUrlIndex(nextIndex);
+                          debouncedUrlChange(
+                            getCurrentUrl(currentFormat, nextIndex),
+                            false
+                          );
+                        }
+                      }}
+                      class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors sm:w-auto w-full"
+                      disabled={getBackupCount(selectedFormat()) === 0}
+                    >
+                      Backup URL{" "}
+                      {backupUrlIndex() >= 0 ? backupUrlIndex() + 1 : ""}
+                    </button>
+                    {getBackupCount(selectedFormat()) > 0 && (
+                      <span class="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {getBackupCount(selectedFormat())}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              <div class="flex items-center mt-2">
+                <div class="h-1 flex-grow bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-blue-500"
+                    style={{
+                      width: `${
+                        backupUrlIndex() === -1
+                          ? 100
+                          : ((backupUrlIndex() + 1) * 100) /
+                            (getBackupCount(selectedFormat()) || 1)
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                  {backupUrlIndex() === -1
+                    ? "Primary"
+                    : `Backup ${backupUrlIndex() + 1}/${getBackupCount(
+                        selectedFormat()
+                      )}`}
+                </span>
+              </div>
+
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Enter the URL of the stream you want to test
+                Enter the URL of the stream you want to test or use provided
+                samples
               </p>
             </div>
 
-            {/* Action buttons - make them more responsive */}
+            {/* Action buttons */}
             <div class="flex flex-wrap gap-2 sm:gap-3">
               <button
                 class="btn btn-primary"
@@ -495,6 +844,63 @@ const StreamTester = () => {
                   url={inputUrl()}
                   onStatusChange={handleStatusChange}
                 />
+
+                <Show
+                  when={
+                    status() === "error" && getBackupCount(selectedFormat()) > 0
+                  }
+                >
+                  <div class="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p class="text-sm text-red-700 dark:text-red-400 mb-3">
+                      Stream failed to load. Try another source:
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      <button
+                        class="px-3 py-2 text-sm border border-red-300 dark:border-red-700 rounded-md bg-white hover:bg-red-50 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+                        onClick={() => {
+                          batch(() => {
+                            resetBackupIndex();
+                            debouncedUrlChange(
+                              SAMPLE_STREAMS[selectedFormat()] || "",
+                              false
+                            );
+                            handleStartTest();
+                          });
+                        }}
+                      >
+                        Try Primary Source
+                      </button>
+
+                      <button
+                        class="px-3 py-2 text-sm border border-blue-300 dark:border-blue-700 rounded-md bg-white hover:bg-blue-50 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+                        onClick={() => {
+                          const format = selectedFormat();
+                          const backupCount = getBackupCount(format);
+
+                          if (backupCount > 0) {
+                            const nextIndex =
+                              (backupUrlIndex() + 1) % backupCount;
+                            batch(() => {
+                              setBackupUrlIndex(nextIndex);
+                              debouncedUrlChange(
+                                getCurrentUrl(format, nextIndex),
+                                false
+                              );
+                              // Small delay before starting test to allow URL change to propagate
+                              setTimeout(() => handleStartTest(), 150);
+                            });
+                          }
+                        }}
+                      >
+                        Try Next Backup Source (
+                        {((backupUrlIndex() + 1) %
+                          getBackupCount(selectedFormat())) +
+                          1}
+                        /{getBackupCount(selectedFormat())})
+                      </button>
+                    </div>
+                  </div>
+                </Show>
               </div>
             </Show>
           </div>
