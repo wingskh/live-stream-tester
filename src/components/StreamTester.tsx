@@ -22,9 +22,10 @@ interface StreamResult {
 const SAMPLE_STREAMS = {
   hls: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
   hlsBackup: [
-    "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-    "https://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8",
+    "https://cdn-demo.cloudflare.com/stream-hls/live/39d4e6c19a479b29d0cdf3b5c50739d5/manifest/video.m3u8",
+    "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8",
     "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
+    "https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8",
   ],
   dash: "https://dash.akamaized.net/akamai/test/caption_test/ElephantsDream/elephants_dream_480p_heaac5_1.mpd",
   dashBackup: [
@@ -45,8 +46,9 @@ const SAMPLE_STREAMS = {
   ],
   rtmp: "rtmp://live.twitch.tv/app/",
   rtmpBackup: [
-    "rtmp://fms.105.net/live/rmc1",
-    "rtmp://streaming.cityofboston.gov/live/cable",
+    "rtmp://lb-vos.flashvisions.com/live/test",
+    "rtmp://stream.mux.com/reference.stream",
+    "rtmp://stream.twitch.tv/app/",
   ],
   rtsp: "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mp4",
   rtspBackup: [

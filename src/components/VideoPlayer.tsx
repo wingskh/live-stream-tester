@@ -55,6 +55,7 @@ const VideoPlayer = (props: VideoPlayerProps) => {
     try {
       switch (props.format) {
         case "hls":
+          alert(`HLS: ${Hls.isSupported()}`);
           initHLS();
           break;
         case "dash":
@@ -68,18 +69,76 @@ const VideoPlayer = (props: VideoPlayerProps) => {
           videoRef.src = props.url;
           break;
         case "rtmp":
-          // RTMP requires Flash or a custom player implementation
-          setStatus("error");
-          props.onStatusChange("error");
-          videoRef.parentElement?.insertAdjacentHTML(
-            "beforeend",
-            `<div class="absolute inset-0 flex items-center justify-center bg-black/70">
-              <div class="text-center p-4">
-                <p class="text-white mb-2">RTMP requires a custom implementation</p>
-                <p class="text-sm text-gray-400">This format typically requires a Flash-based player or specialized library</p>
-              </div>
-            </div>`
-          );
+          // RTMP requires special handling
+          try {
+            // Modern browsers can't play RTMP directly since Flash is deprecated
+            // Try to use flv.js as a fallback for RTMP streams
+            if (typeof flvjs !== "undefined" && flvjs.isSupported()) {
+              // Convert RTMP URL to HTTP-FLV equivalent if possible
+              // This works if the server supports HTTP-FLV fallback
+              let httpFlvUrl = props.url;
+
+              // Try to convert standard RTMP URLs to HTTP-FLV format
+              if (props.url.startsWith("rtmp://")) {
+                // Convert rtmp:// to http:// or https://
+                httpFlvUrl = props.url.replace("rtmp://", "https://");
+
+                // Check if URL has /live/ or similar patterns and add .flv extension
+                if (!httpFlvUrl.endsWith(".flv")) {
+                  httpFlvUrl = httpFlvUrl + ".flv";
+                }
+
+                // Also try to find potential HLS alternative
+                tryHlsAlternative(props.url);
+              }
+
+              console.log(
+                "Attempting HTTP-FLV fallback for RTMP stream:",
+                httpFlvUrl
+              );
+
+              // Create FLV player instance with the converted URL
+              flvPlayer = flvjs.createPlayer({
+                type: "flv",
+                url: httpFlvUrl,
+                isLive: true, // RTMP streams are typically live
+              });
+
+              // Attach to video element
+              flvPlayer.attachMediaElement(videoRef);
+              flvPlayer.load();
+
+              // Listen for events
+              flvPlayer.on(
+                flvjs.Events.ERROR,
+                (errorType: string, errorDetail: any) => {
+                  console.error(
+                    "FLV player error for RTMP stream:",
+                    errorType,
+                    errorDetail
+                  );
+                  showRtmpFallbackOptions();
+                }
+              );
+
+              // Start playing
+              flvPlayer
+                .play()
+                .then(() => {
+                  setStatus("success");
+                  props.onStatusChange("success");
+                })
+                .catch((error: any) => {
+                  console.error("Error playing RTMP as HTTP-FLV:", error);
+                  showRtmpFallbackOptions();
+                });
+            } else {
+              showRtmpFallbackOptions();
+            }
+          } catch (error) {
+            console.error("Error initializing RTMP fallback:", error);
+            showRtmpFallbackOptions();
+          }
           break;
         case "rtsp":
           // RTSP is not directly supported in browsers
@@ -895,17 +954,49 @@ const VideoPlayer = (props: VideoPlayerProps) => {
     if (!videoRef) return;
 
     if (Hls.isSupported()) {
+      // Create a more robust HLS configuration similar to streaming platforms
       hlsInstance = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
+
+        // Advanced buffer management
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+
+        // Live stream optimizations
+        liveSyncDurationCount: 3,
+        liveBackBufferLength: 30,
+
+        // Error recovery and resilience
+        fragLoadingRetryDelay: 1000,
+        manifestLoadingMaxRetry: 5,
+        levelLoadingMaxRetry: 4,
+        fragLoadingMaxRetry: 6,
+
+        // Performance optimizations
+        startLevel: -1, // Auto
+        capLevelToPlayerSize: true,
+        maxLoadingDelay: 4,
+
+        // Debug mode (disable in production)
+        debug: false,
       });
 
+      // Add more robust event handling
       hlsInstance.attachMedia(videoRef);
+
+      // Handle media attachment
       hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {
+        console.log("HLS: Media attached");
         hlsInstance?.loadSource(props.url);
       });
 
-      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+      // Handle successful manifest parsing
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+        console.log(
+          `HLS: Manifest parsed, ${data.levels.length} quality levels available`
+        );
+
         videoRef
           ?.play()
           .then(() => {
@@ -914,21 +1005,95 @@ const VideoPlayer = (props: VideoPlayerProps) => {
           })
           .catch((error) => {
             console.error("Error playing HLS:", error);
-            setStatus("error");
-            props.onStatusChange("error");
+
+            // Handle autoplay restrictions
+            if (error.name === "NotAllowedError") {
+              console.log(
+                "HLS: Autoplay prevented by browser, adding click-to-play overlay"
+              );
+              addClickToPlayOverlay();
+            } else {
+              setStatus("error");
+              props.onStatusChange("error");
+            }
           });
       });
 
+      // Handle level switching
+      hlsInstance.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+        const currentLevel = hlsInstance?.levels[data.level];
+        console.log(`HLS: Quality switched to ${currentLevel?.height}p`);
+      });
+
+      // More granular error handling
       hlsInstance.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
-          console.error("Fatal HLS error:", data);
-          setStatus("error");
-          props.onStatusChange("error");
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error("HLS: Fatal network error", data);
+
+              // Try to recover network error
+              console.log("HLS: Attempting to recover from network error");
+              hlsInstance?.startLoad();
+              break;
+
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error("HLS: Fatal media error", data);
+
+              // Try to recover media error
+              console.log("HLS: Attempting to recover from media error");
+              hlsInstance?.recoverMediaError();
+              break;
+
+            default:
+              // Cannot recover from other fatal errors
+              console.error("HLS: Fatal error, cannot recover", data);
+              hlsInstance?.destroy();
+              setStatus("error");
+              props.onStatusChange("error");
+              break;
+          }
+        } else {
+          // Non-fatal errors don't need immediate handling
+          console.warn("HLS: Non-fatal error", data);
         }
       });
+
+      // Add buffer monitoring
+      const bufferCheckInterval = setInterval(() => {
+        if (videoRef && hlsInstance) {
+          const buffered = videoRef.buffered;
+          if (buffered.length > 0) {
+            const bufferedEnd = buffered.end(buffered.length - 1);
+            const duration = videoRef.duration;
+            const bufferedPercent = (bufferedEnd / duration) * 100;
+
+            if (bufferedPercent < 10 && !isBuffering()) {
+              console.warn(
+                "HLS: Buffer critically low",
+                bufferedPercent.toFixed(2) + "%"
+              );
+              setIsBuffering(true);
+            } else if (bufferedPercent > 15 && isBuffering()) {
+              setIsBuffering(false);
+            }
+          }
+        }
+      }, 2000);
+
+      // Clean up buffer check on cleanup
+      onCleanup(() => clearInterval(bufferCheckInterval));
     } else if (videoRef.canPlayType("application/vnd.apple.mpegurl")) {
       // For Safari which has native HLS support
       videoRef.src = props.url;
+
+      // Enhanced error handling for Safari
+      videoRef.addEventListener("error", () => {
+        console.error("HLS: Error in Safari native playback", videoRef.error);
+        setStatus("error");
+        props.onStatusChange("error");
+      });
+
       videoRef.addEventListener("loadedmetadata", () => {
         videoRef
           ?.play()
@@ -938,15 +1103,79 @@ const VideoPlayer = (props: VideoPlayerProps) => {
           })
           .catch((error) => {
             console.error("Error playing HLS in Safari:", error);
-            setStatus("error");
-            props.onStatusChange("error");
+
+            // Handle autoplay restrictions
+            if (error.name === "NotAllowedError") {
+              addClickToPlayOverlay();
+            } else {
+              setStatus("error");
+              props.onStatusChange("error");
+            }
           });
       });
     } else {
       console.error("HLS is not supported on this browser");
       setStatus("error");
       props.onStatusChange("error");
+
+      // Show helpful error for browsers without HLS support
+      videoRef.parentElement?.insertAdjacentHTML(
+        "beforeend",
+        `<div class="absolute inset-0 flex items-center justify-center bg-black/70">
+          <div class="text-center p-4 max-w-md">
+            <p class="text-white text-lg mb-2">HLS Playback Not Supported</p>
+            <p class="text-gray-300 mb-4">Your browser doesn't support HLS streaming.</p>
+            <p class="text-gray-400 text-sm">Try using Chrome, Firefox, Safari, or Edge.</p>
+          </div>
+        </div>`
+      );
     }
+  };
+
+  // Helper to add click-to-play overlay for browsers with autoplay restrictions
+  const addClickToPlayOverlay = () => {
+    if (!videoRef || !videoRef.parentElement) return;
+
+    const overlayId = "click-to-play-overlay";
+
+    // Remove existing overlay if present
+    const existingOverlay = document.getElementById(overlayId);
+    if (existingOverlay) existingOverlay.remove();
+
+    // Create and add new overlay
+    const overlay = document.createElement("div");
+    overlay.id = overlayId;
+    overlay.className =
+      "absolute inset-0 flex items-center justify-center bg-black/50 cursor-pointer z-10";
+    overlay.innerHTML = `
+      <div class="text-center p-4">
+        <div class="w-20 h-20 rounded-full bg-blue-500/80 flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <p class="text-white text-lg font-medium">Click to Play</p>
+        <p class="text-gray-300 text-sm">Your browser requires interaction to start playback</p>
+      </div>
+    `;
+
+    // Add click handler
+    overlay.addEventListener("click", () => {
+      videoRef
+        ?.play()
+        .then(() => {
+          overlay.remove();
+          setStatus("success");
+          props.onStatusChange("success");
+        })
+        .catch((err) => {
+          console.error("Still cannot play after click:", err);
+          setStatus("error");
+          props.onStatusChange("error");
+        });
+    });
+
+    videoRef.parentElement.appendChild(overlay);
   };
 
   const initDASH = () => {
@@ -1218,6 +1447,122 @@ const VideoPlayer = (props: VideoPlayerProps) => {
         return "Error loading stream";
       default:
         return "Loading stream...";
+    }
+  };
+
+  // Helper function to show RTMP fallback options when direct playback fails
+  const showRtmpFallbackOptions = () => {
+    setStatus("error");
+    props.onStatusChange("error");
+
+    // Create a more helpful error message with alternatives
+    videoRef?.parentElement?.insertAdjacentHTML(
+      "beforeend",
+      `<div class="absolute inset-0 flex items-center justify-center bg-black/70">
+        <div class="text-center p-4 max-w-md">
+          <p class="text-white text-lg mb-2">RTMP Playback Not Supported</p>
+          <p class="text-gray-300 mb-4">Modern browsers can't play RTMP streams directly since Flash is deprecated.</p>
+          
+          <div class="text-left text-sm bg-gray-800 p-3 rounded mb-4">
+            <p class="text-white font-medium mb-2">Alternatives:</p>
+            <ul class="text-gray-300 list-disc pl-5 space-y-1">
+              <li>Ask the stream provider for an HLS or DASH version</li>
+              <li>Try using a native application like VLC Media Player</li>
+              <li>Consider using a server that transcodes RTMP to HLS/DASH</li>
+            </ul>
+          </div>
+          
+          <div class="text-left text-xs bg-blue-900/50 p-3 rounded">
+            <p class="text-blue-200 font-medium mb-1">Technical Note:</p>
+            <p class="text-blue-100">We attempted to use HTTP-FLV as a fallback, but it requires the streaming server to support this format on the same endpoint.</p>
+          </div>
+        </div>
+      </div>`
+    );
+  };
+
+  // Helper function to try finding an HLS alternative for an RTMP stream
+  const tryHlsAlternative = (rtmpUrl: string) => {
+    // Some streaming services offer HLS alternatives for RTMP streams
+    // Common patterns:
+    // rtmp://server.com/live/stream -> https://server.com/live/stream/playlist.m3u8
+
+    if (!rtmpUrl.startsWith("rtmp://")) return;
+
+    try {
+      // Extract domain and path from RTMP URL
+      const urlWithoutProtocol = rtmpUrl.replace("rtmp://", "");
+      const parts = urlWithoutProtocol.split("/");
+      const domain = parts[0];
+      const path = parts.slice(1).join("/");
+
+      // Try various common HLS URL patterns
+      const hlsVariants = [
+        `https://${domain}/${path}/playlist.m3u8`,
+        `https://${domain}/${path}/index.m3u8`,
+        `https://${domain}/hls/${path}.m3u8`,
+        `https://${domain}/hls/${path}/index.m3u8`,
+      ];
+
+      console.log(
+        "Attempting to find HLS alternatives for RTMP stream:",
+        hlsVariants
+      );
+
+      // Try to load the first variant using HLS.js
+      if (Hls.isSupported() && hlsVariants.length > 0) {
+        // We'll create a temporary HLS instance to test
+        const tempHls = new Hls();
+        tempHls.loadSource(hlsVariants[0]);
+        tempHls.on(Hls.Events.MANIFEST_PARSED, () => {
+          // If we reach here, the HLS URL works!
+          console.log(
+            "Found working HLS alternative for RTMP stream:",
+            hlsVariants[0]
+          );
+
+          // Destroy the temporary instance
+          tempHls.destroy();
+
+          // Now set up the actual HLS player
+          hlsInstance = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+          });
+
+          if (videoRef) {
+            hlsInstance.attachMedia(videoRef);
+            hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {
+              hlsInstance?.loadSource(hlsVariants[0]);
+            });
+
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+              videoRef
+                ?.play()
+                .then(() => {
+                  setStatus("success");
+                  props.onStatusChange("success");
+                })
+                .catch((error) => {
+                  console.error(
+                    "Error playing HLS alternative for RTMP:",
+                    error
+                  );
+                  // Still try to continue with the HTTP-FLV approach
+                });
+            });
+          }
+        });
+
+        tempHls.on(Hls.Events.ERROR, () => {
+          // This variant didn't work, try the next one (in a real implementation)
+          tempHls.destroy();
+          // For now, we'll just let the HTTP-FLV approach continue
+        });
+      }
+    } catch (error) {
+      console.error("Error trying HLS alternative:", error);
+      // Continue with HTTP-FLV approach
     }
   };
 
