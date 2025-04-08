@@ -55,8 +55,59 @@ const VideoPlayer = (props: VideoPlayerProps) => {
     try {
       switch (props.format) {
         case "hls":
-          alert(`HLS: ${Hls.isSupported()}`);
-          initHLS();
+          // UC Browser compatibility fix - it returns false for Hls.isSupported() but can play some HLS streams
+          if (navigator.userAgent.indexOf("UCBrowser") > -1) {
+            alert("UC Browser detected - trying native playback for HLS");
+            console.log("UC Browser detected - trying native playback for HLS");
+            // Try direct playback first for UC Browser
+            videoRef.src = props.url;
+
+            // Add loading and error handlers for UC Browser
+            videoRef.addEventListener("error", (e) => {
+              console.error(
+                "Error in UC Browser HLS playback:",
+                videoRef.error
+              );
+              // Show helpful fallback message for UC Browser users
+              videoRef.parentElement?.insertAdjacentHTML(
+                "beforeend",
+                `<div class="absolute inset-0 flex items-center justify-center bg-black/70">
+                  <div class="text-center p-4 max-w-md">
+                    <p class="text-white text-lg mb-2">Playback Error in UC Browser</p>
+                    <p class="text-gray-300 mb-4">UC Browser has limited support for HLS streams.</p>
+                    <div class="text-left text-sm bg-gray-800 p-3 rounded mb-2">
+                      <p class="text-white font-medium mb-2">Try these options:</p>
+                      <ul class="text-gray-300 list-disc pl-5 space-y-1">
+                        <li>Open this page in Chrome or Safari browser</li>
+                        <li>Update your UC Browser to the latest version</li>
+                        <li>Try a different stream format (like MP4)</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>`
+              );
+
+              setStatus("error");
+              props.onStatusChange("error");
+            });
+
+            videoRef.addEventListener("loadedmetadata", () => {
+              videoRef
+                ?.play()
+                .then(() => {
+                  setStatus("success");
+                  props.onStatusChange("success");
+                })
+                .catch((error) => {
+                  console.error("Error playing HLS in UC Browser:", error);
+                  setStatus("error");
+                  props.onStatusChange("error");
+                });
+            });
+          } else {
+            // Standard initialization for other browsers
+            initHLS();
+          }
           break;
         case "dash":
           initDASH();
@@ -953,6 +1004,53 @@ const VideoPlayer = (props: VideoPlayerProps) => {
   const initHLS = () => {
     if (!videoRef) return;
 
+    // Check for UC Browser first and handle it specially
+    if (navigator.userAgent.indexOf("UCBrowser") > -1) {
+      console.log("UC Browser detected - trying native HLS playback");
+      // For UC Browser, try direct playback first as it may support some HLS streams natively
+      videoRef.src = props.url;
+
+      videoRef.addEventListener("error", () => {
+        console.error("HLS playback error in UC Browser:", videoRef.error);
+        // Show helpful error message
+        videoRef.parentElement?.insertAdjacentHTML(
+          "beforeend",
+          `<div class="absolute inset-0 flex items-center justify-center bg-black/70">
+            <div class="text-center p-4 max-w-md">
+              <p class="text-white text-lg mb-2">Playback Error in UC Browser</p>
+              <p class="text-gray-300 mb-4">UC Browser has limited support for HLS streams.</p>
+              <div class="text-left text-sm bg-gray-800 p-3 rounded mb-2">
+                <p class="text-white font-medium mb-2">Try these options:</p>
+                <ul class="text-gray-300 list-disc pl-5 space-y-1">
+                  <li>Open this page in Chrome or Safari browser</li>
+                  <li>Try a different stream format (like MP4)</li>
+                </ul>
+              </div>
+            </div>
+          </div>`
+        );
+        setStatus("error");
+        props.onStatusChange("error");
+      });
+
+      videoRef.addEventListener("loadedmetadata", () => {
+        videoRef
+          ?.play()
+          .then(() => {
+            setStatus("success");
+            props.onStatusChange("success");
+          })
+          .catch((error) => {
+            console.error("Error playing HLS in UC Browser:", error);
+            setStatus("error");
+            props.onStatusChange("error");
+          });
+      });
+
+      return;
+    }
+
+    // For other browsers, continue with normal HLS.js detection
     if (Hls.isSupported()) {
       // Create a more robust HLS configuration similar to streaming platforms
       hlsInstance = new Hls({
