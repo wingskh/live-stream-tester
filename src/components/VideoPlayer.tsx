@@ -63,7 +63,7 @@ const VideoPlayer = (props: VideoPlayerProps) => {
             videoRef.src = props.url;
 
             // Add loading and error handlers for UC Browser
-            videoRef.addEventListener("error", (e) => {
+            videoRef.addEventListener("error", (_) => {
               console.error(
                 "Error in UC Browser HLS playback:",
                 videoRef.error
