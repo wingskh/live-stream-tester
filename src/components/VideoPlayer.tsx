@@ -952,15 +952,37 @@ const VideoPlayer = (props: VideoPlayerProps) => {
 
   const initHLS = () => {
     if (!videoRef) return;
+    if (videoRef.canPlayType("application/vnd.apple.mpegurl")) {
+      // For Safari which has native HLS support
+      videoRef.src = props.url;
 
-    alert(
-      `HLV: ${Hls.isSupported()}, video: ${videoRef.canPlayType(
-        "application/vnd.apple.mpegurl"
-      )}`
-    );
+      // Enhanced error handling for Safari
+      videoRef.addEventListener("error", () => {
+        console.error("HLS: Error in Safari native playback", videoRef.error);
+        setStatus("error");
+        props.onStatusChange("error");
+      });
 
-    // For other browsers, continue with normal HLS.js detection
-    if (Hls.isSupported()) {
+      videoRef.addEventListener("loadedmetadata", () => {
+        videoRef
+          ?.play()
+          .then(() => {
+            setStatus("success");
+            props.onStatusChange("success");
+          })
+          .catch((error) => {
+            console.error("Error playing HLS in Safari:", error);
+
+            // Handle autoplay restrictions
+            if (error.name === "NotAllowedError") {
+              addClickToPlayOverlay();
+            } else {
+              setStatus("error");
+              props.onStatusChange("error");
+            }
+          });
+      });
+    } else if (Hls.isSupported()) {
       // Create a more robust HLS configuration similar to streaming platforms
       hlsInstance = new Hls({
         enableWorker: true,
@@ -1090,36 +1112,6 @@ const VideoPlayer = (props: VideoPlayerProps) => {
 
       // Clean up buffer check on cleanup
       onCleanup(() => clearInterval(bufferCheckInterval));
-    } else if (videoRef.canPlayType("application/vnd.apple.mpegurl")) {
-      // For Safari which has native HLS support
-      videoRef.src = props.url;
-
-      // Enhanced error handling for Safari
-      videoRef.addEventListener("error", () => {
-        console.error("HLS: Error in Safari native playback", videoRef.error);
-        setStatus("error");
-        props.onStatusChange("error");
-      });
-
-      videoRef.addEventListener("loadedmetadata", () => {
-        videoRef
-          ?.play()
-          .then(() => {
-            setStatus("success");
-            props.onStatusChange("success");
-          })
-          .catch((error) => {
-            console.error("Error playing HLS in Safari:", error);
-
-            // Handle autoplay restrictions
-            if (error.name === "NotAllowedError") {
-              addClickToPlayOverlay();
-            } else {
-              setStatus("error");
-              props.onStatusChange("error");
-            }
-          });
-      });
     } else {
       console.error("HLS is not supported on this browser");
       setStatus("error");
