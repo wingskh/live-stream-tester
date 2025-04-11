@@ -998,7 +998,11 @@ const VideoPlayer = (props: VideoPlayerProps) => {
 
       return;
     }
-    alert(`HLV: ${videoRef.canPlayType("application/vnd.apple.mpegurl")}`);
+    alert(
+      `HLV: ${Hls.isSupported()} ${videoRef.canPlayType(
+        "application/vnd.apple.mpegurl"
+      )}`
+    );
 
     // For other browsers, continue with normal HLS.js detection
     if (Hls.isSupported()) {
